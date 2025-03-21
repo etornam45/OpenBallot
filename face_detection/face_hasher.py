@@ -65,7 +65,7 @@ class FaceHasher:
             return None
 
     @staticmethod
-    def compare_hashes(hash1, hash2, threshold=25):
+    def compare_hashes(hash1, hash2, threshold=30):
         """Compare two binary hashes"""
         if len(hash1) != len(hash2):
             raise ValueError("Hash length mismatch")

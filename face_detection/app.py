@@ -113,7 +113,7 @@ async def compare_hash(
             "hamming_distance": distance,
             "is_match": is_match,
             "hash_length": len(image_hash),
-            "threshold": 25
+            "threshold": 30
         }
     except HTTPException:
         raise
