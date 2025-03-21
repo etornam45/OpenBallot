@@ -84,7 +84,7 @@ const Index = () => {
       </div>
       
       {/* Features Section */}
-      <section className="py-16 px-6  bg-foreground/95">
+      <section className="py-16 px-6  bg-zinc-200 min-h-[600px]">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12">Why Choose OpenBallot?</h2>
           

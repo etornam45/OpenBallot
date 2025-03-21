@@ -7,6 +7,11 @@ import GhanaButton from '@/components/GhanaButton';
 import GlassCard from '@/components/GlassCard';
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FetchVotes } from '@/lib/gql';
+import { countVotes, VoteCount } from '@/lib/counter';
+import { toast } from 'sonner';
+import axios from 'axios';
+import { PalCandidates, PresCandidates } from '@/hooks/elections';
 
 interface CandidateResult {
   id: string;
@@ -28,84 +33,61 @@ const Results = () => {
     progress: number;
     lastUpdated: string;
   } | null>(null);
-  const [presidentialResults, setPresidentialResults] = useState<CandidateResult[]>([]);
-  const [parliamentaryResults, setParliamentaryResults] = useState<CandidateResult[]>([]);
+  const [presidentialResults, setPresidentialResults] = useState<PresCandidates[]>([]);
+  const [parliamentaryResults, setParliamentaryResults] = useState<PalCandidates[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
+  const [results, setResults] = useState<VoteCount>();
   useEffect(() => {
+    const loadElectionData = async () => {
+      try {
+        const response = await axios.get(`http://localhost:3001/election/${electionId}`);
+        const data = response.data;
+
+        // Create unique keys for candidates
+        const processCandidates = (candidates: any[], type: string) => {
+          const seen = new Set();
+          return candidates.filter(candidate => {
+            const key = `${type}-${candidate.election_id}-${candidate.id}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              return true;
+            }
+            return false;
+          }).map((candidate, index) => ({
+            ...candidate,
+            uniqueKey: `${type}-${candidate.election_id}-${candidate.id}-${index}`
+          }));
+        };
+
+        setPresidentialResults(processCandidates(data.pres_candidates, 'pres'))
+        setParliamentaryResults(processCandidates(data.pal_candidates, 'parl'))
+
+      } catch (error) {
+        console.error('Error loading election:', error);
+        toast.error('Failed to load election data');
+      }
+    };
+
+    loadElectionData();
     fetchResults();
+    setElectionDetails({
+      title: '2023 Presidential Election',
+      type: 'Presidential and Parliamentary',
+      constituency: 'Ayawaso West Wuogon',
+      totalVotes: 24829,
+      progress: 78,
+      lastUpdated: new Date().toLocaleTimeString()
+    });
   }, [electionId]);
 
-  const fetchResults = () => {
+  const fetchResults = async () => {
     // Simulate fetching results
     setIsRefreshing(true);
-    
-    setTimeout(() => {
-      setElectionDetails({
-        title: '2023 Presidential Election',
-        type: 'Presidential and Parliamentary',
-        constituency: 'Ayawaso West Wuogon',
-        totalVotes: 24829,
-        progress: 78,
-        lastUpdated: new Date().toLocaleTimeString()
-      });
-      
-      setPresidentialResults([
-        {
-          id: 'p1',
-          name: 'John Mahama',
-          party: 'National Democratic Congress',
-          image: 'https://via.placeholder.com/150',
-          votes: 10456,
-          percentage: 42.1
-        },
-        {
-          id: 'p2',
-          name: 'Nana Akufo-Addo',
-          party: 'New Patriotic Party',
-          image: 'https://via.placeholder.com/150',
-          votes: 11987,
-          percentage: 48.3
-        },
-        {
-          id: 'p3',
-          name: 'Ivor Greenstreet',
-          party: 'Convention People\'s Party',
-          image: 'https://via.placeholder.com/150',
-          votes: 2386,
-          percentage: 9.6
-        }
-      ]);
-      
-      setParliamentaryResults([
-        {
-          id: 'm1',
-          name: 'Samuel Atta Mills',
-          party: 'National Democratic Congress',
-          image: 'https://via.placeholder.com/150',
-          votes: 9872,
-          percentage: 39.8
-        },
-        {
-          id: 'm2',
-          name: 'Abena Osei-Asare',
-          party: 'New Patriotic Party',
-          image: 'https://via.placeholder.com/150',
-          votes: 12483,
-          percentage: 50.3
-        },
-        {
-          id: 'm3',
-          name: 'Sarah Adwoa Safo',
-          party: 'Independent',
-          image: 'https://via.placeholder.com/150',
-          votes: 2474,
-          percentage: 9.9
-        }
-      ]);
-      
-      setIsRefreshing(false);
-    }, 1000);
+
+    const votes = await FetchVotes()
+    const result = countVotes(votes)
+    setResults(result)
+    setIsRefreshing(false);
   };
 
   const handleRefresh = () => {
@@ -123,14 +105,32 @@ const Results = () => {
     );
   }
 
-  const getWinner = (results: CandidateResult[]) => {
-    return results.reduce((prev, current) => 
-      prev.votes > current.votes ? prev : current
-    );
+  const getWinner = (results: Record<string, number> | undefined) => {
+      let winnerKey: string | null = null;
+      let maxVotes = -1;
+      for (const key in results) {
+          const value = results[key];
+          if (value > maxVotes) {
+              maxVotes = value;
+              winnerKey = key;
+          }
+      }
+      return winnerKey;
   };
 
-  const presidentialWinner = presidentialResults.length > 0 ? getWinner(presidentialResults) : null;
-  const parliamentaryWinner = parliamentaryResults.length > 0 ? getWinner(parliamentaryResults) : null;
+  const presidentialWinner_id = presidentialResults.length > 0 ? getWinner(results?.presidentialCandidates) : null;
+  const parliamentaryWinner_id = parliamentaryResults.length > 0 ? getWinner(results?.parliamentaryCandidates) : null;
+
+  function findCadidateWithID(id: string | number, str: string = "pres") {
+    const presCandidate = presidentialResults.find(c => c.id === id);
+    if (presCandidate && str == "pres") return presCandidate;
+    
+    const palCandidate = parliamentaryResults.find(c => c.id === id);
+    if (palCandidate && str == "parl") return palCandidate;
+    
+    return null;
+  }
+
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -138,9 +138,9 @@ const Results = () => {
       <header className="bg-white py-4 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
-            <GhanaButton 
-              variant="black" 
-              size="sm" 
+            <GhanaButton
+              variant="black"
+              size="sm"
               onClick={() => navigate('/dashboard')}
               className="mr-4"
             >
@@ -150,7 +150,7 @@ const Results = () => {
           </div>
         </div>
       </header>
-      
+
       {/* Main Content */}
       <main className="flex-1 py-12 px-6">
         <div className="max-w-5xl mx-auto">
@@ -162,26 +162,26 @@ const Results = () => {
                 <span>Constituency: {electionDetails.constituency}</span>
               </div>
             </div>
-            
+
             <div className="mt-4 md:mt-0 flex items-center">
               <div className="mr-4 text-right">
                 <div className="text-sm text-gray-500">Last Updated</div>
                 <div className="font-medium">{electionDetails.lastUpdated}</div>
               </div>
-              <GhanaButton 
-                variant="black" 
-                size="sm" 
+              <GhanaButton
+                variant="black"
+                size="sm"
                 onClick={handleRefresh}
                 className="flex items-center gap-1"
                 disabled={isRefreshing}
               >
-                <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} /> 
+                <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
                 {isRefreshing ? "Refreshing..." : "Refresh"}
               </GhanaButton>
             </div>
           </div>
-          
-          <GlassCard className="p-6 mb-8 animate-fade-in">
+
+          {/* <GlassCard className="p-6 mb-8 animate-fade-in">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="col-span-2">
                 <div className="space-y-2">
@@ -195,14 +195,14 @@ const Results = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="bg-gray-50 rounded-lg p-4 flex flex-col items-center justify-center">
-                <div className="text-3xl font-bold mb-1">{electionDetails.totalVotes.toLocaleString()}</div>
+                <div className="text-3xl font-bold mb-1">{electionDetails.totalVotes}</div>
                 <div className="text-sm text-gray-600">Total Votes Cast</div>
               </div>
             </div>
-          </GlassCard>
-          
+          </GlassCard> */}
+
           <Tabs defaultValue={electionDetails.type.includes('Presidential') ? "presidential" : "parliamentary"} className="animate-fade-in">
             <TabsList className="w-full mb-6 gap-3">
               {electionDetails.type.includes('Presidential') && (
@@ -210,11 +210,11 @@ const Results = () => {
               )}
               <TabsTrigger value="parliamentary" className="flex-1">Parliamentary Results</TabsTrigger>
             </TabsList>
-            
+
             {electionDetails.type.includes('Presidential') && (
               <TabsContent value="presidential">
                 <GlassCard className="p-6 mb-8">
-                  {presidentialWinner && (
+                  {findCadidateWithID(+presidentialWinner_id!) && (
                     <div className="flex flex-col items-center mb-8 pb-8 border-b border-gray-200">
                       <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-ghana-green text-white mb-4">
                         Leading Candidate
@@ -224,16 +224,16 @@ const Results = () => {
                           <User className="h-12 w-12 text-gray-400" />
                         </div>
                       </div>
-                      <h3 className="text-xl font-semibold mb-1">{presidentialWinner.name}</h3>
-                      <p className="text-sm text-gray-600 mb-2">{presidentialWinner.party}</p>
+                      <h3 className="text-xl font-semibold mb-1">{findCadidateWithID(+presidentialWinner_id!)?.name}</h3>
+                      <p className="text-sm text-gray-600 mb-2">{findCadidateWithID(+presidentialWinner_id!)?.political_party}</p>
                       <div className="flex items-center">
-                        <div className="text-2xl font-bold">{presidentialWinner.percentage.toFixed(1)}%</div>
+                        {/* <div className="text-2xl font-bold">{findCadidateWithID(+presidentialWinner_id!)?.percentage.toFixed(1)}%</div> */}
                         <span className="mx-2 text-gray-400">|</span>
-                        <div className="text-gray-600">{presidentialWinner.votes.toLocaleString()} votes</div>
+                        <div className="text-gray-600">{results?.presidentialCandidates[presidentialWinner_id!]} votes</div>
                       </div>
                     </div>
                   )}
-                  
+
                   <h3 className="text-lg font-semibold mb-4">All Presidential Candidates</h3>
                   <div className="space-y-4">
                     {presidentialResults.map((candidate) => (
@@ -247,25 +247,24 @@ const Results = () => {
                           <div>
                             <div className="flex items-center">
                               <p className="font-medium">{candidate.name}</p>
-                              {candidate.id === presidentialWinner?.id && (
+                              {candidate.id === findCadidateWithID(+presidentialWinner_id!)?.id && (
                                 <CheckCircle className="h-4 w-4 ml-2 text-ghana-green" />
                               )}
                             </div>
-                            <p className="text-xs text-gray-600">{candidate.party}</p>
+                            <p className="text-xs text-gray-600">{candidate.political_party}</p>
                           </div>
                           <div className="ml-auto text-right">
-                            <p className="font-semibold">{candidate.percentage.toFixed(1)}%</p>
-                            <p className="text-xs text-gray-600">{candidate.votes.toLocaleString()} votes</p>
+                            {/* <p className="font-semibold">{candidate.percentage.toFixed(1)}%</p> */}
+                            <p className="text-xs text-gray-600">{results?.presidentialCandidates[candidate.id]} votes</p>
                           </div>
                         </div>
                         <div className="relative h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div 
-                            className={`absolute top-0 left-0 h-full rounded-full ${
-                              candidate.id === presidentialWinner?.id 
-                                ? 'bg-ghana-green' 
-                                : 'bg-ghana-gold'
-                            }`}
-                            style={{ width: `${candidate.percentage}%` }}
+                          <div
+                            className={`absolute top-0 left-0 h-full rounded-full ${candidate.id === findCadidateWithID(+presidentialWinner_id!)?.id
+                              ? 'bg-ghana-green'
+                              : 'bg-ghana-gold'
+                              }`}
+                            // style={{ width: `${candidate.percentage}%` }}
                           ></div>
                         </div>
                       </div>
@@ -274,10 +273,10 @@ const Results = () => {
                 </GlassCard>
               </TabsContent>
             )}
-            
+
             <TabsContent value="parliamentary">
               <GlassCard className="p-6 mb-8">
-                {parliamentaryWinner && (
+                {findCadidateWithID(+parliamentaryWinner_id!) && (
                   <div className="flex flex-col items-center mb-8 pb-8 border-b border-gray-200">
                     <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-ghana-green text-white mb-4">
                       Leading Candidate
@@ -287,16 +286,16 @@ const Results = () => {
                         <User className="h-12 w-12 text-gray-400" />
                       </div>
                     </div>
-                    <h3 className="text-xl font-semibold mb-1">{parliamentaryWinner.name}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{parliamentaryWinner.party}</p>
+                    <h3 className="text-xl font-semibold mb-1">{findCadidateWithID(+parliamentaryWinner_id!, "parl")?.name}</h3>
+                    <p className="text-sm text-gray-600 mb-2">{findCadidateWithID(+parliamentaryWinner_id!, 'parl')?.political_party}</p>
                     <div className="flex items-center">
-                      <div className="text-2xl font-bold">{parliamentaryWinner.percentage.toFixed(1)}%</div>
+                      {/* <div className="text-2xl font-bold">{parliamentaryWinner.percentage.toFixed(1)}%</div> */}
                       <span className="mx-2 text-gray-400">|</span>
-                      <div className="text-gray-600">{parliamentaryWinner.votes.toLocaleString()} votes</div>
+                      <div className="text-gray-600">{results?.parliamentaryCandidates[parliamentaryWinner_id!]} votes</div>
                     </div>
                   </div>
                 )}
-                
+
                 <h3 className="text-lg font-semibold mb-4">All Parliamentary Candidates</h3>
                 <div className="space-y-4">
                   {parliamentaryResults.map((candidate) => (
@@ -310,25 +309,24 @@ const Results = () => {
                         <div>
                           <div className="flex items-center">
                             <p className="font-medium">{candidate.name}</p>
-                            {candidate.id === parliamentaryWinner?.id && (
+                            {candidate.id === +parliamentaryWinner_id! && (
                               <CheckCircle className="h-4 w-4 ml-2 text-ghana-green" />
                             )}
                           </div>
-                          <p className="text-xs text-gray-600">{candidate.party}</p>
+                          <p className="text-xs text-gray-600">{candidate.political_party}</p>
                         </div>
                         <div className="ml-auto text-right">
-                          <p className="font-semibold">{candidate.percentage.toFixed(1)}%</p>
-                          <p className="text-xs text-gray-600">{candidate.votes.toLocaleString()} votes</p>
+                          {/* <p className="font-semibold">{candidate.percentage.toFixed(1)}%</p> */}
+                          <p className="text-xs text-gray-600">{results?.parliamentaryCandidates[candidate.id]} votes</p>
                         </div>
                       </div>
                       <div className="relative h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                          className={`absolute top-0 left-0 h-full rounded-full ${
-                            candidate.id === parliamentaryWinner?.id 
-                              ? 'bg-ghana-green' 
-                              : 'bg-ghana-gold'
-                          }`}
-                          style={{ width: `${candidate.percentage}%` }}
+                        <div
+                          className={`absolute top-0 left-0 h-full rounded-full ${candidate.id === findCadidateWithID(+parliamentaryWinner_id!)?.id
+                            ? 'bg-ghana-green'
+                            : 'bg-ghana-gold'
+                            }`}
+                          // style={{ width: `${candidate.percentage}%` }}
                         ></div>
                       </div>
                     </div>
@@ -339,7 +337,7 @@ const Results = () => {
           </Tabs>
         </div>
       </main>
-      
+
       {/* Footer */}
       <footer className="py-4 px-6 bg-white border-t border-gray-200">
         <div className="max-w-6xl mx-auto text-center">

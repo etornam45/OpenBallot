@@ -1,8 +1,0 @@
-{
-  "sepolia": {
-    "openballot": {
-      "address": "0x66e456A52E0bdef0d7dbE2F7e88EDBC5da7F93C6",
-      "startBlock": 7953520
-    }
-  }
-}
