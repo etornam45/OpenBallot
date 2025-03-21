@@ -6,7 +6,8 @@ export const users = sqliteTable("users", {
   name: text().notNull(),
   voter_id: int().notNull().unique(),
 //   passkey: text().notNull(),
-  facial_hash: text().notNull()
+  facial_hash: text().notNull(),
+  address: text()
 });
 
 

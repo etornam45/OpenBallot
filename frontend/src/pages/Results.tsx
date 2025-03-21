@@ -41,106 +41,68 @@ const Results = () => {
     setIsRefreshing(true);
     
     setTimeout(() => {
-      if (electionId?.includes('presidential')) {
-        setElectionDetails({
-          title: '2023 Presidential Election',
-          type: 'Presidential and Parliamentary',
-          constituency: 'Ayawaso West Wuogon',
-          totalVotes: 24829,
-          progress: 78,
-          lastUpdated: new Date().toLocaleTimeString()
-        });
-        
-        setPresidentialResults([
-          {
-            id: 'p1',
-            name: 'John Mahama',
-            party: 'National Democratic Congress',
-            image: 'https://via.placeholder.com/150',
-            votes: 10456,
-            percentage: 42.1
-          },
-          {
-            id: 'p2',
-            name: 'Nana Akufo-Addo',
-            party: 'New Patriotic Party',
-            image: 'https://via.placeholder.com/150',
-            votes: 11987,
-            percentage: 48.3
-          },
-          {
-            id: 'p3',
-            name: 'Ivor Greenstreet',
-            party: 'Convention People\'s Party',
-            image: 'https://via.placeholder.com/150',
-            votes: 2386,
-            percentage: 9.6
-          }
-        ]);
-        
-        setParliamentaryResults([
-          {
-            id: 'm1',
-            name: 'Samuel Atta Mills',
-            party: 'National Democratic Congress',
-            image: 'https://via.placeholder.com/150',
-            votes: 9872,
-            percentage: 39.8
-          },
-          {
-            id: 'm2',
-            name: 'Abena Osei-Asare',
-            party: 'New Patriotic Party',
-            image: 'https://via.placeholder.com/150',
-            votes: 12483,
-            percentage: 50.3
-          },
-          {
-            id: 'm3',
-            name: 'Sarah Adwoa Safo',
-            party: 'Independent',
-            image: 'https://via.placeholder.com/150',
-            votes: 2474,
-            percentage: 9.9
-          }
-        ]);
-      } else {
-        setElectionDetails({
-          title: '2023 Parliamentary Election',
-          type: 'Parliamentary Only',
-          constituency: 'Ayawaso West Wuogon',
-          totalVotes: 23156,
-          progress: 82,
-          lastUpdated: new Date().toLocaleTimeString()
-        });
-        
-        setParliamentaryResults([
-          {
-            id: 'm1',
-            name: 'Samuel Atta Mills',
-            party: 'National Democratic Congress',
-            image: 'https://via.placeholder.com/150',
-            votes: 9872,
-            percentage: 39.8
-          },
-          {
-            id: 'm2',
-            name: 'Abena Osei-Asare',
-            party: 'New Patriotic Party',
-            image: 'https://via.placeholder.com/150',
-            votes: 12483,
-            percentage: 50.3
-          },
-          {
-            id: 'm3',
-            name: 'Sarah Adwoa Safo',
-            party: 'Independent',
-            image: 'https://via.placeholder.com/150',
-            votes: 2474,
-            percentage: 9.9
-          }
-        ]);
-      }
+      setElectionDetails({
+        title: '2023 Presidential Election',
+        type: 'Presidential and Parliamentary',
+        constituency: 'Ayawaso West Wuogon',
+        totalVotes: 24829,
+        progress: 78,
+        lastUpdated: new Date().toLocaleTimeString()
+      });
+      
+      setPresidentialResults([
+        {
+          id: 'p1',
+          name: 'John Mahama',
+          party: 'National Democratic Congress',
+          image: 'https://via.placeholder.com/150',
+          votes: 10456,
+          percentage: 42.1
+        },
+        {
+          id: 'p2',
+          name: 'Nana Akufo-Addo',
+          party: 'New Patriotic Party',
+          image: 'https://via.placeholder.com/150',
+          votes: 11987,
+          percentage: 48.3
+        },
+        {
+          id: 'p3',
+          name: 'Ivor Greenstreet',
+          party: 'Convention People\'s Party',
+          image: 'https://via.placeholder.com/150',
+          votes: 2386,
+          percentage: 9.6
+        }
+      ]);
+      
+      setParliamentaryResults([
+        {
+          id: 'm1',
+          name: 'Samuel Atta Mills',
+          party: 'National Democratic Congress',
+          image: 'https://via.placeholder.com/150',
+          votes: 9872,
+          percentage: 39.8
+        },
+        {
+          id: 'm2',
+          name: 'Abena Osei-Asare',
+          party: 'New Patriotic Party',
+          image: 'https://via.placeholder.com/150',
+          votes: 12483,
+          percentage: 50.3
+        },
+        {
+          id: 'm3',
+          name: 'Sarah Adwoa Safo',
+          party: 'Independent',
+          image: 'https://via.placeholder.com/150',
+          votes: 2474,
+          percentage: 9.9
+        }
+      ]);
       
       setIsRefreshing(false);
     }, 1000);
@@ -194,7 +156,7 @@ const Results = () => {
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold mb-2">{electionDetails.title} Results</h1>
+              <h1 className="font-semibold mb-2">{electionDetails.title} Results</h1>
               <div className="flex items-center text-gray-600 mb-1">
                 <MapPin className="h-4 w-4 mr-2" />
                 <span>Constituency: {electionDetails.constituency}</span>

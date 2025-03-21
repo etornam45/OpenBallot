@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-import Voting from "./pages/Voting";
+// import Voting from "./pages/Voting";
 import Results from "./pages/Results";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/dashboard/Dashboard";
@@ -15,6 +15,7 @@ import CreateElection from "./pages/dashboard/CreateElection";
 import AddCandidates from "./pages/dashboard/AddCandidates";
 import ReviewElection from "./pages/dashboard/ReviewElection";
 import RegistrationPage from "./pages/Register";
+import Voting from "./pages/Vote";
 // import Register from "./pages/Register";
 // import Register from "./pages/Register";
 

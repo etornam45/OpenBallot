@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Camera } from 'lucide-react';
+import { ArrowLeft, User, Camera, Wallet } from 'lucide-react';
 import OpenBallotLogo from '@/components/OpenBallotLogo';
 import GhanaButton from '@/components/GhanaButton';
 import GlassCard from '@/components/GlassCard';
@@ -17,6 +17,9 @@ const Login = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [webcamError, setWebcamError] = useState('');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [showWalletConnect, setShowWalletConnect] = useState(false);
+  const [metamaskError, setMetamaskError] = useState('');
 
   // Webcam setup
   useEffect(() => {
@@ -38,6 +41,14 @@ const Login = () => {
         stream.getTracks().forEach(track => track.stop());
       }
     };
+  }, []);
+
+
+  useEffect(() => {
+    const storedWalletAddress = localStorage.getItem('walletAddress');
+    if (storedWalletAddress) {
+      setWalletAddress(storedWalletAddress);
+    }
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,54 +73,113 @@ const Login = () => {
     e.preventDefault();
 
     if (!formData.voterId) {
-      toast("Error", {
-        description: "Please enter your Voter ID",
-        duration: 3000,
-      });
+      toast.error("Please enter your Voter ID");
       return;
     }
 
     if (!formData.image) {
-      toast("Error", {
-        description: "Please capture your face image",
-        duration: 3000,
-      });
+      toast.error("Please capture your face image");
       return;
     }
 
     setIsLoading(true);
 
-    const _formData = new FormData()
+    try {
+      const formPayload = new FormData();
+      const res = await fetch(formData.image);
+      const image = await res.blob();
 
-    const res = await fetch(formData.image);
-    const image = await res.blob();
+      formPayload.append('voter_id', formData.voterId);
+      formPayload.append("image", image, `image.jpeg`);
 
-    _formData.append('voter_id', formData.voterId)
-    _formData.append("image", image, `image.jpeg`)
+      const response = await fetch('http://localhost:3001/login', {
+        method: 'POST',
+        body: formPayload,
+        credentials: 'include'
+      });
 
-    const response = await fetch('http://localhost:3001/login', {
-      method: 'POST',
-      body: _formData,
-      credentials: 'include' // Include cookies if needed
-    });
+      if (!response.ok) {
+        throw new Error('Authentication failed');
+      }
 
-    const responseData = await response.json();
-    if (!response.ok) {
-      throw new Error(responseData.message || 'Submission failed');
+      setShowWalletConnect(true);
+      toast.success("Verification successful! Connect your wallet");
+    } catch (error) {
+      toast.error("Authentication failed. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-    console.log('Submission successful:', responseData);
+  };
 
-    setIsLoading(false);
-    toast("Login Successful", {
-      description: "Welcome to OpenBallot!",
-      duration: 3000,
+
+  // Check if wallet is already connected
+  useEffect(() => {
+    const storedWalletAddress = localStorage.getItem('walletAddress');
+    if (storedWalletAddress) {
+      setWalletAddress(storedWalletAddress);
+    }
+  }, []);
+
+  const connectMetaMask = async () => {
+    // Check if MetaMask is installed
+    if (typeof window.ethereum === 'undefined') {
+      toast.error("MetaMask Not Found", {
+        description: "Please install MetaMask browser extension to continue."
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Request account access
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const address = accounts[0];
+      setWalletAddress(address);
+
+      // Store wallet address
+      localStorage.setItem('walletAddress', address);
+      localStorage.setItem('userName', 'Voter');
+
+      setIsLoading(false);
+
+      toast.success("Wallet Connected", {
+        description: "Your MetaMask wallet has been successfully connected."
+      });
+
+      // Short delay before redirect for better UX
+      setTimeout(() => {
+        handleProceed()
+      }, 1000);
+
+    } catch (error) {
+      setIsLoading(false);
+      toast.error("Connection Failed", {
+        description: error instanceof Error ? error.message : "Failed to connect wallet. Please try again."
+      });
+    }
+  };
+
+  const handleDisconnectWallet = () => {
+    setWalletAddress('');
+    localStorage.removeItem('walletAddress');
+    toast("Wallet Disconnected", {
+      description: "Your wallet has been disconnected."
     });
-    navigate('/dashboard');
+  };
+
+  // Format wallet address for display
+  const formatWalletAddress = (address: string) => {
+    if (!address) return '';
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
+
+  const handleProceed = () => {
+    navigate('/voting/1');
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Header */}
       <header className="bg-white py-4 px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
@@ -126,100 +196,153 @@ const Login = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 py-12 px-6 flex items-center justify-center">
         <div className="w-full max-w-md">
-          <GlassCard className="p-8 animate-fade-in">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold">Voter Login</h1>
-              <p className="text-gray-600 mt-2">
-                Verify your identity to continue
-              </p>
-            </div>
+          {!showWalletConnect ? (
+            <GlassCard className="p-8 animate-fade-in">
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold">Voter Login</h1>
+                <p className="text-gray-600 mt-2">
+                  Verify your identity to continue
+                </p>
+              </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <Label htmlFor="voterId">Voter ID</Label>
-                <div className="relative mt-2">
-                  <User className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                  <Input
-                    id="voterId"
-                    name="voterId"
-                    value={formData.voterId}
-                    onChange={handleInputChange}
-                    className="pl-10 w-full"
-                    placeholder="Enter your Voter ID"
-                    required
-                  />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <Label htmlFor="voterId">Voter ID</Label>
+                  <div className="relative mt-2">
+                    <User className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                    <Input
+                      id="voterId"
+                      name="voterId"
+                      value={formData.voterId}
+                      onChange={handleInputChange}
+                      className="pl-10 w-full"
+                      placeholder="Enter your Voter ID"
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <Label>Facial Verification</Label>
-                {webcamError ? (
-                  <div className="text-red-600 text-sm">{webcamError}</div>
-                ) : (
-                  <>
-                    <div className="relative aspect-video rounded-lg overflow-hidden border-2 border-ghana-gold">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        className="w-full h-full object-cover"
-                      />
-                      {formData.image && (
-                        <img
-                          src={formData.image}
-                          alt="Capture preview"
-                          className="absolute inset-0 w-full h-full object-cover"
+                <div className="space-y-4">
+                  <Label>Facial Verification</Label>
+                  {webcamError ? (
+                    <div className="text-red-600 text-sm">{webcamError}</div>
+                  ) : (
+                    <>
+                      <div className="relative aspect-video rounded-lg overflow-hidden border-2 border-ghana-gold">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          className="w-full h-full object-cover"
                         />
-                      )}
-                    </div>
-                    <GhanaButton
-                      variant="gold"
-                      size="sm"
-                      type="button"
-                      onClick={captureImage}
-                      className="w-full"
-                    >
-                      <Camera className="mr-2 h-4 w-4" />
-                      {formData.image ? "Recapture Image" : "Capture Face"}
-                    </GhanaButton>
-                  </>
-                )}
+                        {formData.image && (
+                          <img
+                            src={formData.image}
+                            alt="Capture preview"
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <GhanaButton
+                        variant="gold"
+                        size="sm"
+                        type="button"
+                        onClick={captureImage}
+                        className="w-full"
+                      >
+                        <Camera className="mr-2 h-4 w-4" />
+                        {formData.image ? "Recapture Image" : "Capture Face"}
+                      </GhanaButton>
+                    </>
+                  )}
+                </div>
+
+                <GhanaButton
+                  variant="red"
+                  size="lg"
+                  fullWidth
+                  type="submit"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Verifying..." : "Login"}
+                </GhanaButton>
+              </form>
+
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-600">
+                  Need help?{' '}
+                  <a
+                    href="/support"
+                    className="text-ghana-green hover:underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate('/support');
+                    }}
+                  >
+                    Contact support
+                  </a>
+                </p>
+              </div>
+            </GlassCard>
+          ) : (
+            <div className="space-y-6 mt-6">
+              <div className="text-center p-4 bg-gray-100 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">
+                  Connect your MetaMask wallet to access the platform securely with your digital identity.
+                </p>
               </div>
 
-              <GhanaButton
-                variant="red"
-                size="lg"
-                fullWidth
-                type="submit"
-                disabled={isLoading}
-              >
-                {isLoading ? "Verifying..." : "Login"}
-              </GhanaButton>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                Need help?{' '}
-                <a
-                  href="/support"
-                  className="text-ghana-green hover:underline"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate('/support');
-                  }}
+              {walletAddress ? (
+                <div className="text-center space-y-4">
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200 flex items-center justify-center gap-2">
+                    <Wallet className="h-5 w-5 text-ghana-green" />
+                    <p className="font-mono text-sm">{formatWalletAddress(walletAddress)}</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <GhanaButton
+                      variant="green"
+                      onClick={() => handleProceed()}
+                      disabled={isLoading}
+                    >
+                      Continue
+                    </GhanaButton>
+                    
+                    <GhanaButton
+                      variant="black"
+                      onClick={handleDisconnectWallet}
+                      disabled={isLoading}
+                    >
+                      Disconnect
+                    </GhanaButton>
+                  </div>
+                </div>
+              ) : (
+                <GhanaButton
+                  variant="gold"
+                  size="lg"
+                  fullWidth
+                  onClick={connectMetaMask}
+                  disabled={isLoading}
+                  className="flex items-center justify-center gap-2"
                 >
-                  Contact support
-                </a>
-              </p>
+                  {isLoading ? (
+                    "Connecting..."
+                  ) : (
+                    <>
+                      <Wallet size={18} />
+                      Connect MetaMask
+                    </>
+                  )}
+                </GhanaButton>
+              )}
             </div>
-          </GlassCard>
+          )}
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="py-4 px-6 bg-white border-t border-gray-200">
         <div className="max-w-5xl mx-auto text-center">
           <p className="text-sm text-gray-500">

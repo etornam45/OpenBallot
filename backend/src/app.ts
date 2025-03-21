@@ -18,6 +18,7 @@ app.use(logger)
 
 app.use(auth_router)
 app.use(elections_router)
+app.use(user_router)
 
 app.get("/", auth_middleware, (req: Request, res: Response) => {
     res.send("From get")

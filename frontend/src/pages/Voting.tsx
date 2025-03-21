@@ -9,14 +9,9 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner"
 import axios from 'axios';
 import { ElectionBody, PalCandidates, PresCandidates } from '@/hooks/elections';
+import { ConnectWalletButton } from '@/components/ConnectWalletButton';
+import { castVote } from '@/lib/voting';
 
-
-interface Candidate {
-  id: string;
-  name: string;
-  party: string;
-  image: string;
-}
 
 const Voting = () => {
   const navigate = useNavigate();
@@ -38,28 +33,43 @@ const Voting = () => {
 
 
   useEffect(() => {
-    // Simulate fetching election details
-    setTimeout(() => {
-      setElectionDetails({
-        title: '2023 Presidential Election',
-        type: 'Presidential and Parliamentary',
-        constituency: 'Ayawaso West Wuogon'
-      });
-    }, 500);
-
-    async function LoadElection() {
-      const res = await axios.get("http://localhost:3001/election/" + electionId)
-      const data = res.data as ElectionBody
-      setElectionDetails({
-        title: data.elections.title,
-        type: 'Presidential and Parliamentary',
-        constituency: 'Ayawaso West Wuogon'
-      });
-
-      setPresidentialCandidates(data.pres_candidates)
-      setParliamentaryCandidates(data.pal_candidates)
-    }
-    LoadElection()
+    const loadElectionData = async () => {
+      try {
+        const response = await axios.get(`http://localhost:3001/election/${electionId}`);
+        const data = response.data;
+  
+        // Create unique keys for candidates
+        const processCandidates = (candidates: any[], type: string) => {
+          const seen = new Set();
+          return candidates.filter(candidate => {
+            const key = `${type}-${candidate.election_id}-${candidate.id}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              return true;
+            }
+            return false;
+          }).map((candidate, index) => ({
+            ...candidate,
+            uniqueKey: `${type}-${candidate.election_id}-${candidate.id}-${index}`
+          }));
+        };
+  
+        setPresidentialCandidates(processCandidates(data.pres_candidates, 'pres'));
+        setParliamentaryCandidates(processCandidates(data.pal_candidates, 'parl'));
+  
+        setElectionDetails({
+          title: data.elections.title,
+          type: 'Presidential and Parliamentary',
+          constituency: 'Ayawaso West Wuogon'
+        });
+  
+      } catch (error) {
+        console.error('Error loading election:', error);
+        toast.error('Failed to load election data');
+      }
+    };
+  
+    loadElectionData();
   }, [electionId]);
 
   const handleSelectPresident = (candidateId: number) => {
@@ -90,20 +100,67 @@ const Voting = () => {
     setStep(2);
   };
 
-  const handleSubmitVote = () => {
+  const handleSubmitVote = async () => {
+    if (!selectedPresident || !selectedMP) {
+      toast.error("Please select all candidates");
+      return;
+    }
+
+    
+  
     setIsSubmitting(true);
-
-    // Simulate vote submission
-    setTimeout(() => {
-      setIsSubmitting(false);
-
-      toast("Vote Submitted", {
-        description: "Your vote has been recorded successfully.",
-        duration: 3000,
+  
+    try {
+      const electionIdNum = parseInt(electionId || '0', 10);
+      if (isNaN(electionIdNum)) {
+        throw new Error('Invalid election ID');
+      }
+  
+      // Check if user has already voted
+      // const hasVoted = await checkVotingStatus(electionIdNum);
+      // if (hasVoted) {
+      //   toast.error("You've already voted in this election");
+      //   navigate(`/results/${electionId}`);
+      //   return;
+      // }
+  
+      // Submit vote to blockchain
+      const tx = await castVote(
+        electionIdNum,
+        selectedPresident,
+        selectedMP
+      );
+  
+      toast.info("Vote submitted", {
+        description: "Waiting for blockchain confirmation...",
+        duration: 5000,
       });
-
+  
+      // Wait for transaction confirmation
+      await tx.wait();
+  
+      // Record vote in backend
+      // await axios.post(`http://localhost:3001/votes`, {
+      //   electionId: electionIdNum,
+      //   presidentialCandidateId: selectedPresident,
+      //   parliamentaryCandidateId: selectedMP,
+      //   transactionHash: tx.hash
+      // });
+  
+      toast.success("Vote recorded successfully!", {
+        description: `Transaction hash: ${tx.hash}`,
+        duration: 7000,
+      });
+  
       navigate(`/results/${electionId}`);
-    }, 2000);
+  
+    } catch (error) {
+      console.error('Voting error:', error);
+      const message = error instanceof Error ? error.message : 'Transaction failed';
+      toast.error("Vote submission failed", { description: message });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getSelectedCandidate = (candidateId: number | null, candidates: PalCandidates[] | PresCandidates[]) => {
@@ -137,6 +194,7 @@ const Voting = () => {
             </GhanaButton>
             <OpenBallotLogo />
           </div>
+          <ConnectWalletButton />
         </div>
       </header>
 

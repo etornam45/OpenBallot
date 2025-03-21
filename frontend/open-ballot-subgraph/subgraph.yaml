@@ -1,0 +1,29 @@
+specVersion: 1.2.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: openballot
+    network: sepolia
+    source:
+      address: "0x66e456A52E0bdef0d7dbE2F7e88EDBC5da7F93C6"
+      abi: openballot
+      startBlock: 7953520
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - ElectionCreated
+        - VoteCast
+      abis:
+        - name: openballot
+          file: ./abis/openballot.json
+      eventHandlers:
+        - event: ElectionCreated(uint256,uint256,uint256)
+          handler: handleElectionCreated
+        - event: VoteCast(indexed address,uint256,uint256,uint256)
+          handler: handleVoteCast
+      file: ./src/openballot.ts
